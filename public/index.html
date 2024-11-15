@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Multiplayer Game</title>
+  <style> canvas { border: 1px solid black; } </style>
+</head>
+<body>
+  <canvas id="gameCanvas" width="600" height="400"></canvas>
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    let players = {};
+    let bullets = {}
+    let mouseX = 0;
+    let mouseY = 0;
+
+    const barrier = {
+      x: 600 / 2 - 25,   // Example center position for the barrier
+      y: 400 / 2 - 25,  // Example center position for the barrier
+      width: 50,              // Barrier width
+      height: 50              // Barrier height
+    };
+
+    const bulletSample = {
+      x: 0,
+      y: 0,
+      radius: 10,
+      dx: 0, // Horizontal speed
+      dy: 0  // Vertical speed
+    };
+
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = 'grey'
+      ctx.fillRect(barrier.x, barrier.y, barrier.width, barrier.height)
+
+      for (const id in bullets) {
+        const bullet = bullets[id]
+        ctx.beginPath()
+        ctx.arc(bullet.x, bullet.y, 10, 0, Math.PI * 2)
+        ctx.fillStyle = 'blue'
+        ctx.fill()
+        ctx.closePath()
+      }
+
+      for (const id in players) {
+        const player = players[id];
+        ctx.fillStyle = id === socket.id ? 'blue' : 'red';
+        ctx.fillRect(player.x, player.y, 10, 20);
+      }
+    }
+    
+    canvas.addEventListener("mousedown", (event) => {
+      const player = players[socket.id];
+      if (!player) return 
+
+      mouseX = event.clientX - canvas.getBoundingClientRect().left;
+      mouseY = event.clientY - canvas.getBoundingClientRect().top;
+
+      const dirX = mouseX - player.x;
+      const dirY = mouseY - player.y;
+      const length = Math.sqrt(dirX * dirX + dirY * dirY);
+
+      const x = player.x
+      const y = player.y
+      const dx = (dirX / length)
+      const dy = (dirY / length)
+      
+      //if player not moving move player, else shoot bullet
+      if (!player.moving) {
+
+        socket.emit('setMove', { dx,dy })
+        console.log('New move direction set')
+      } else {
+        for (const id in bullets) {
+          const bullet = bullets[id]
+          if (bullet.player === socket.id) console.log('bullet exists for player')
+        } 
+        console.log('Shooting bullet')
+        socket.emit('shoot', { x, y, dx, dy, player: socket.id})
+      }
+
+    });
+    
+    socket.on('currentPlayers', (currentPlayers) => {
+      players = currentPlayers;
+      draw();
+    });
+    
+    socket.on('updateMoving', (data) => {
+      p = players[socket.id]
+      p.dx = data.dx
+      p.dy = data.dy 
+      p.moving = data.moving
+    })
+
+    socket.on('newPlayer', (player) => {
+      players[player.id] = player;
+      draw();
+    });
+
+    socket.on('newBullet', (bullet) => {
+      bullets[bullet.id] = bullet
+    })
+
+    socket.on('deleteBullet', (id) => {
+      console.log('deleting bullet')
+      delete bullets[id]
+      draw()
+    })
+
+    socket.on('bulletMove', (data) => {
+      bullet = bullets[data.id]
+      if (!bullet) return 
+      bullet.x = data.x
+      bullet.y = data.y 
+      draw()
+    })
+
+    socket.on('playerMoved', (data) => {
+      if (players[data.id]) {
+        players[data.id].x = data.x
+        players[data.id].y = data.y
+        players[data.id].moving = data.moving
+      }
+      draw();
+    });
+
+    socket.on('playerDisconnected', (id) => {
+      delete players[id];
+      draw();
+    });
+
+  </script>
+</body>
+</html>
+
