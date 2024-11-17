@@ -15,6 +15,27 @@ let players = {};
 let bullets = {}
 let bulletIdCounter = 0;
 
+function bulletCollides(bullet) {
+  // Check each player for a potential collision
+  for (let id in players) {
+    let player = players[id];
+
+    // Check if the bullet collides with the player
+    const distX = bullet.x - Math.max(player.x, Math.min(bullet.x, player.x + playerWidth));
+    const distY = bullet.y - Math.max(player.y, Math.min(bullet.y, player.y + playerHeight));
+
+    // Calculate the distance between the bullet and the player (including bullet radius)
+    const distance = Math.sqrt(distX * distX + distY * distY);
+
+    // If the distance between the bullet's center and the player is less than the bullet's radius, it's a collision
+    if (distance < bullet.radius && bullet.shotBy != player.id) {
+      console.log('collision');
+      // Handle the collision logic (e.g., removing the bullet, damaging the player, etc.)
+    }
+  }
+}
+
+
 const barrier = {
   x: mapWidth / 2 - 25,   // Example center position for the barrier
   y: mapHeight / 2 - 25,  // Example center position for the barrier
@@ -34,9 +55,9 @@ app.use(express.static('public'));
 
 io.on('connection', (socket) => {
   players[socket.id] = { id: socket.id, x: 100, y: 100, dx: 0, dy: 0, moving: false, ball: null};
-  socket.emit('currentPlayers', players);
-  socket.broadcast.emit('newPlayer', { id: socket.id, x: 100, y: 100, dx: 0, dy: 0, moving: false, ball: null});
-
+  socket.emit('currentPlayers', players)
+  io.emit('newPlayer', players[socket.id])
+  
   socket.on('setMove', (data) => {
     if (players[socket.id]) {
       p = players[socket.id]
@@ -44,6 +65,7 @@ io.on('connection', (socket) => {
       p.dy = data.dy
       p.moving = true
       io.emit('updateMoving',{
+        id: socket.id,
         dx:p.dx,
         dy:p.dy,
         moving:p.moving
@@ -57,6 +79,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('shoot', (data) => {
+
     const bulletId = bulletIdCounter++
     bullets[bulletId] = {
       id: bulletId,
@@ -65,17 +88,17 @@ io.on('connection', (socket) => {
       radius: 10,
       dx: data.dx, 
       dy: data.dy,
-      player: data.player
+      shotBy: socket.id
     };
 
     io.emit('newBullet',{
       id: bulletId,
       x: data.x,
       y:data.y,
-      radious: 10,
-      dx: 0,
-      dy: 0,
-      player: data.player
+      radius: 10,
+      dx: data.dx,
+      dy: data.dy,
+      shotBy: socket.id
     })
   })
 });
@@ -126,15 +149,28 @@ setInterval(() => {
       bullet.y <= 0 ||
       bullet.y >= mapHeight;
 
-    if (!outOfBounds) {
-      bullet.x += bullet.dx * 5
-      bullet.y += bullet.dy * 5
+    const collidesWithBarrier = bullet.x + bullet.dx * 4 > barrier.x &&
+      bullet.x + bullet.dx * 4 < barrier.x + barrier.width &&
+      bullet.y + bullet.dy * 4 > barrier.y &&
+      bullet.y + bullet.dy * 4 < barrier.y + barrier.height;
+
+
+    bulletCollides(bullet)
+
+
+    if (!outOfBounds && !collidesWithBarrier) {
+      bullet.x += bullet.dx * 9
+      bullet.y += bullet.dy * 9
       io.emit('bulletMove', {id, x: bullet.x, y: bullet.y })
     } else {
       delete bullets[id]
       io.emit('deleteBullet', id)
     }
+
   }
+  
+
+  
 }, 33);
 
 server.listen(3000, () => console.log('Server running on http://localhost:3000'));

@@ -32,7 +32,6 @@
       dy: 0  // Vertical speed
     };
 
-
     function draw() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.fillStyle = 'grey'
@@ -70,29 +69,33 @@
       const dx = (dirX / length)
       const dy = (dirY / length)
       
-      //if player not moving move player, else shoot bullet
       if (!player.moving) {
-
         socket.emit('setMove', { dx,dy })
-        console.log('New move direction set')
       } else {
-        for (const id in bullets) {
-          const bullet = bullets[id]
-          if (bullet.player === socket.id) console.log('bullet exists for player')
+        let canShoot = true
+        for (const bulletId in bullets) {
+          bullet = bullets[bulletId]
+          
+          if (bullet.shotBy === socket.id) {
+            canShoot = false
+            break
+          }
         } 
-        console.log('Shooting bullet')
-        socket.emit('shoot', { x, y, dx, dy, player: socket.id})
+        
+        if (canShoot) {
+          socket.emit('shoot', { x, y, dx, dy, shotBy: socket.id})
+        }
       }
 
     });
     
     socket.on('currentPlayers', (currentPlayers) => {
-      players = currentPlayers;
+      players = { ...currentPlayers };
       draw();
     });
     
     socket.on('updateMoving', (data) => {
-      p = players[socket.id]
+      p = players[data.id]
       p.dx = data.dx
       p.dy = data.dy 
       p.moving = data.moving
@@ -108,7 +111,6 @@
     })
 
     socket.on('deleteBullet', (id) => {
-      console.log('deleting bullet')
       delete bullets[id]
       draw()
     })
