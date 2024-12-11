@@ -6,14 +6,30 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-const playerWidth = 10
-const playerHeight = 20
+const playerWidth = 25
+const playerHeight = 50
 
-const mapWidth = 600
-const mapHeight = 400
+const mapWidth = 800
+const mapHeight = 600
 let players = {};
 let bullets = {}
 let bulletIdCounter = 0;
+
+const barrier = {
+  x: mapWidth / 2 - 50,   // Example center position for the barrier
+  y: mapHeight / 2 - 100,  // Example center position for the barrier
+  width: 50,              // Barrier width
+  height: 100              // Barrier height
+};
+
+const bulletSample = {
+  x: 0,
+  y: 0,
+  radius: 10,
+  dx: 0, // Horizontal speed
+  dy: 0  // Vertical speed
+};
+
 
 function bulletCollides(bullet) {
   // Check each player for a potential collision
@@ -35,26 +51,37 @@ function bulletCollides(bullet) {
   }
 }
 
+//call this function when player movement state changes to update image
 
-const barrier = {
-  x: mapWidth / 2 - 25,   // Example center position for the barrier
-  y: mapHeight / 2 - 25,  // Example center position for the barrier
-  width: 50,              // Barrier width
-  height: 50              // Barrier height
-};
+function stopAndUpdateState(player) {
+  if (player.x < 2) {
+    player.state = 'west';
+  } else if (player.x > mapWidth - 2) {
+    player.state = 'east';
+  } else if (player.y < 2) {
+    player.state = 'north';
+  } else if (player.y > mapHeight - 2) {
+    player.state = 'south';
+  } else {
+    player.state = 'stopped';
+  }
 
-const bulletSample = {
-  x: 0,
-  y: 0,
-  radius: 10,
-  dx: 0, // Horizontal speed
-  dy: 0  // Vertical speed
-};
+  // Check barrier collision
+  const collidesWithBarrier = player.x + playerWidth > barrier.x &&
+    player.x < barrier.x + barrier.width &&
+    player.y + playerHeight > barrier.y &&
+    player.y < barrier.y + barrier.height;
 
+  if (collidesWithBarrier) {
+    player.state = 'stopped';
+  }
+
+  io.emit('updatePlayerState', { id: player.id, state: player.state });
+}
 app.use(express.static('public'));
 
 io.on('connection', (socket) => {
-  players[socket.id] = { id: socket.id, x: 100, y: 100, dx: 0, dy: 0, moving: false, ball: null};
+  players[socket.id] = { id: socket.id, x: 100, y: 100, dx: 0, dy: 0, ball: null, state: ''};
   socket.emit('currentPlayers', players)
   io.emit('newPlayer', players[socket.id])
   
@@ -63,12 +90,12 @@ io.on('connection', (socket) => {
       p = players[socket.id]
       p.dx = data.dx
       p.dy = data.dy
-      p.moving = true
+      p.state = 'moving'
       io.emit('updateMoving',{
         id: socket.id,
         dx:p.dx,
         dy:p.dy,
-        moving:p.moving
+        state:'moving'
       })
     }
   });
@@ -79,7 +106,6 @@ io.on('connection', (socket) => {
   });
 
   socket.on('shoot', (data) => {
-
     const bulletId = bulletIdCounter++
     bullets[bulletId] = {
       id: bulletId,
@@ -107,16 +133,16 @@ setInterval(() => {
   for (const id in players) {
     const player = players[id];
 
-    if (player.moving) {
+    if (player.state === 'moving') {
       const outOfBounds = player.x <= 0 ||
         player.x + playerWidth >= mapWidth ||
         player.y <= 0 ||
         player.y + playerHeight >= mapHeight;
 
-      const collidesWithBarrier = player.x + player.dx * 4 + playerWidth > barrier.x &&
-        player.x + player.dx * 4 < barrier.x + barrier.width &&
-        player.y + player.dy * 4 + playerHeight > barrier.y &&
-        player.y + player.dy * 4 < barrier.y + barrier.height;
+      const collidesWithBarrier = player.x + playerWidth > barrier.x &&
+        player.x < barrier.x + barrier.width &&
+        player.y + playerHeight > barrier.y &&
+        player.y < barrier.y + barrier.height;
 
       if (!outOfBounds && !collidesWithBarrier) {
         player.x += player.dx * 5
@@ -131,10 +157,9 @@ setInterval(() => {
           player.x -= player.dx * 5
           player.y -= player.dy * 5
         }
-        player.moving = false;  // Stop moving after collision
-
+        stopAndUpdateState(player)
       }
-    io.emit('playerMoved', { id: player.id, x: player.x, y: player.y, moving: player.moving }); 
+    io.emit('playerMoved', { id: player.id, x: player.x, y: player.y }); 
     }
   }
 
@@ -168,9 +193,6 @@ setInterval(() => {
     }
 
   }
-  
-
-  
 }, 33);
 
 server.listen(3000, () => console.log('Server running on http://localhost:3000'));

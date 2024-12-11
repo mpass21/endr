@@ -6,7 +6,7 @@
   <style> canvas { border: 1px solid black; } </style>
 </head>
 <body>
-  <canvas id="gameCanvas" width="600" height="400"></canvas>
+  <canvas id="gameCanvas" width="800" height="600"></canvas>
   <script src="/socket.io/socket.io.js"></script>
   <script>
     const socket = io();
@@ -16,12 +16,15 @@
     let bullets = {}
     let mouseX = 0;
     let mouseY = 0;
+    
+    const character1 = new Image()
+    character1.src = '/images/char1.png'
 
     const barrier = {
-      x: 600 / 2 - 25,   // Example center position for the barrier
-      y: 400 / 2 - 25,  // Example center position for the barrier
+      x: 800 / 2 - 50,   // Example center position for the barrier
+      y: 600 / 2 - 100,  // Example center position for the barrier
       width: 50,              // Barrier width
-      height: 50              // Barrier height
+      height: 100              // Barrier height
     };
 
     const bulletSample = {
@@ -48,14 +51,16 @@
 
       for (const id in players) {
         const player = players[id];
+        const playerImg = id === socket.id ? character1 : character1
         ctx.fillStyle = id === socket.id ? 'blue' : 'red';
-        ctx.fillRect(player.x, player.y, 10, 20);
+        ctx.fillRect(player.x, player.y, 25, 50);
       }
     }
     
     canvas.addEventListener("mousedown", (event) => {
       const player = players[socket.id];
       if (!player) return 
+      console.log(player.state)
 
       mouseX = event.clientX - canvas.getBoundingClientRect().left;
       mouseY = event.clientY - canvas.getBoundingClientRect().top;
@@ -69,12 +74,12 @@
       const dx = (dirX / length)
       const dy = (dirY / length)
       
-      if (!player.moving) {
+      if (player.state !== 'moving') {
         socket.emit('setMove', { dx,dy })
       } else {
         let canShoot = true
         for (const bulletId in bullets) {
-          bullet = bullets[bulletId]
+          const bullet = bullets[bulletId]
           
           if (bullet.shotBy === socket.id) {
             canShoot = false
@@ -98,7 +103,7 @@
       p = players[data.id]
       p.dx = data.dx
       p.dy = data.dy 
-      p.moving = data.moving
+      p.state = data.state
     })
 
     socket.on('newPlayer', (player) => {
@@ -127,10 +132,17 @@
       if (players[data.id]) {
         players[data.id].x = data.x
         players[data.id].y = data.y
-        players[data.id].moving = data.moving
       }
       draw();
     });
+
+    socket.on('updatePlayerState', (data) => {
+      player = players[data.id]
+      if (!player) return 
+      player.state = data.state
+      console.log('state changed')
+      draw()
+    })
 
     socket.on('playerDisconnected', (id) => {
       delete players[id];
