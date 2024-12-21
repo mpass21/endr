@@ -6,8 +6,8 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-const playerWidth = 25
-const playerHeight = 50
+const playerWidth = 50
+const playerHeight = 100
 
 const mapWidth = 800
 const mapHeight = 600
@@ -16,8 +16,8 @@ let bullets = {}
 let bulletIdCounter = 0;
 
 const barrier = {
-  x: mapWidth / 2 - 50,   // Example center position for the barrier
-  y: mapHeight / 2 - 100,  // Example center position for the barrier
+  x: mapWidth / 2 - 25,   // Example center position for the barrier
+  y: mapHeight / 2 - 50,  // Example center position for the barrier
   width: 50,              // Barrier width
   height: 100              // Barrier height
 };
@@ -54,28 +54,17 @@ function bulletCollides(bullet) {
 //call this function when player movement state changes to update image
 
 function stopAndUpdateState(player) {
-  if (player.x < 2) {
+  player.state = 'stopped'  
+    if (player.x < 2) {
     player.state = 'west';
-  } else if (player.x > mapWidth - 2) {
+  } else if (player.x + playerWidth > mapWidth - 2) {
     player.state = 'east';
   } else if (player.y < 2) {
     player.state = 'north';
-  } else if (player.y > mapHeight - 2) {
+  } else if (player.y + playerHeight > mapHeight - 2) {
     player.state = 'south';
-  } else {
-    player.state = 'stopped';
   }
-
-  // Check barrier collision
-  const collidesWithBarrier = player.x + playerWidth > barrier.x &&
-    player.x < barrier.x + barrier.width &&
-    player.y + playerHeight > barrier.y &&
-    player.y < barrier.y + barrier.height;
-
-  if (collidesWithBarrier) {
-    player.state = 'stopped';
-  }
-
+  
   io.emit('updatePlayerState', { id: player.id, state: player.state });
 }
 app.use(express.static('public'));

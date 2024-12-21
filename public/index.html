@@ -12,17 +12,44 @@
     const socket = io();
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
+    const playerWidth = 50
+    const playerHeight = 100
+
+    const playerNorth = new Image()
+    playerNorth.src = '/images/char1North.png'
+
+    const playerNorthF = new Image()
+    playerNorthF.src = '/images/char1NorthF.png'
+
+    const playerEast = new Image()
+    playerEast.src = '/images/char1NorthF.png'
+
+    const playerWest = new Image()
+    playerWest.src = '/images/char1North.png'
+
+    const playerSouth = new Image()
+    playerSouth.src = '/images/char1.png'
+    
+    const playerSouthF = new Image()
+    playerSouthF.src = '/images/char1f.png'
+    
+    // stock image used for uncreated states
+    const playerStock = new Image()
+    playerStock.src = '/images/char1.png'
+
+    const playerStockF = new Image()
+    playerStockF.src = '/images/char1f.png'
+
+
     let players = {};
     let bullets = {}
     let mouseX = 0;
     let mouseY = 0;
     
-    const character1 = new Image()
-    character1.src = '/images/char1.png'
 
     const barrier = {
-      x: 800 / 2 - 50,   // Example center position for the barrier
-      y: 600 / 2 - 100,  // Example center position for the barrier
+      x: 800 / 2 - 25,   // Example center position for the barrier
+      y: 600 / 2 - 50,  // Example center position for the barrier
       width: 50,              // Barrier width
       height: 100              // Barrier height
     };
@@ -51,19 +78,48 @@
 
       for (const id in players) {
         const player = players[id];
-        const playerImg = id === socket.id ? character1 : character1
-        ctx.fillStyle = id === socket.id ? 'blue' : 'red';
-        ctx.fillRect(player.x, player.y, 25, 50);
+        const isFlipped = mouseX < player.x
+
+        switch (player.state) {
+           
+          case "north":
+            if (isFlipped) {
+              ctx.drawImage(playerNorthF, player.x, player.y, 50, 100)
+            } else {
+              ctx.drawImage(playerNorth, player.x, player.y, 50, 100)
+            }  
+            break
+
+          case "east":
+            ctx.drawImage(playerEast, player.x, player.y, 50, 100)
+            break
+
+          case "west":
+            ctx.drawImage(playerWest, player.x, player.y, 50, 100)
+            break
+
+          case "south":
+            if (isFlipped) {
+              ctx.drawImage(playerSouthF, player.x, player.y, 50, 100)
+            } else {
+              ctx.drawImage(playerSouth, player.x, player.y, 50, 100)
+            }  
+            break
+            
+          default:
+            if (isFlipped) {
+              ctx.drawImage(playerStockF, player.x, player.y, 50, 100)
+            } else {
+              ctx.drawImage(playerStock, player.x, player.y, 50, 100)
+            }  
+            break
+        }
       }
     }
     
     canvas.addEventListener("mousedown", (event) => {
       const player = players[socket.id];
       if (!player) return 
-      console.log(player.state)
-
-      mouseX = event.clientX - canvas.getBoundingClientRect().left;
-      mouseY = event.clientY - canvas.getBoundingClientRect().top;
 
       const dirX = mouseX - player.x;
       const dirY = mouseY - player.y;
@@ -93,6 +149,13 @@
       }
 
     });
+
+    canvas.addEventListener("mousemove", (event) => {
+      const rect = canvas.getBoundingClientRect()
+      mouseX = event.clientX - canvas.getBoundingClientRect().left;
+      mouseY = event.clientY - canvas.getBoundingClientRect().top;
+      draw()
+    })
     
     socket.on('currentPlayers', (currentPlayers) => {
       players = { ...currentPlayers };
@@ -140,7 +203,7 @@
       player = players[data.id]
       if (!player) return 
       player.state = data.state
-      console.log('state changed')
+      console.log('state changed, state is: ', player.state)
       draw()
     })
 
