@@ -5,9 +5,9 @@
   "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build-css": "tailwindcss -i ./input.css -o ./public/styles.css",
+    "build-css": "tailwindcss -i ../Client/input.css -o ../Client/public/styles.css",
     "start": "nodemon server.js",
-    "dev": "npm run build-css & node server.js"
+    "dev": "npm run build-css & nodemon server.js"
   },
   "keywords": [],
   "author": "",
